@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/runpod/runpodctl/api"
 	"github.com/runpod/runpodctl/cmd/ssh"
 	internalapi "github.com/runpod/runpodctl/internal/api"
 	"github.com/runpod/runpodctl/internal/configenv"
+	"github.com/runpod/runpodctl/internal/configpath"
 	"github.com/runpod/runpodctl/internal/output"
 
 	"github.com/spf13/cobra"
@@ -79,6 +81,15 @@ func checkAPIKey() checkResult {
 	apiKey := configenv.APIKey()
 
 	if apiKey != "" {
+		migrated, err := migrateLegacyConfig()
+		if err != nil {
+			result.Status = "fail"
+			result.Error = fmt.Sprintf("failed to migrate config: %v", err)
+			return result
+		}
+		if migrated {
+			result.Fixed = true
+		}
 		result.Status = "pass"
 		return result
 	}
@@ -112,24 +123,60 @@ func checkAPIKey() checkResult {
 
 	// save to config
 	viper.Set("apiKey", apiKey)
-	home, _ := os.UserHomeDir()
-	configPath := home + "/.runpod"
-	os.MkdirAll(configPath, 0700)
-
-	if err := viper.WriteConfig(); err != nil {
-		if err := viper.WriteConfigAs(configPath + "/config.toml"); err != nil {
-			result.Error = fmt.Sprintf("failed to save config: %v", err)
-			return result
-		}
+	configFile, err := configpath.Save(viper.GetViper())
+	if err != nil {
+		result.Error = fmt.Sprintf("failed to save config: %v", err)
+		return result
 	}
 
 	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintf(os.Stderr, "api key saved to %s/config.toml\n", configPath)
+	fmt.Fprintf(os.Stderr, "api key saved to %s\n", configFile)
 	fmt.Fprintln(os.Stderr, "")
 
 	result.Fixed = true
 	result.Status = "pass"
 	return result
+}
+
+// migrateLegacyConfig copies file settings without persisting environment or
+// flag overrides, or changing the credentials used by the current command.
+func migrateLegacyConfig() (bool, error) {
+	loaded := viper.ConfigFileUsed()
+	if loaded == "" {
+		return false, nil
+	}
+
+	current, err := configpath.Current()
+	if err != nil {
+		return false, err
+	}
+	loaded, err = filepath.Abs(loaded)
+	if err != nil {
+		return false, fmt.Errorf("failed to normalize loaded config path: %w", err)
+	}
+	current, err = filepath.Abs(current)
+	if err != nil {
+		return false, fmt.Errorf("failed to normalize current config path: %w", err)
+	}
+	if filepath.Clean(loaded) == filepath.Clean(current) {
+		return false, nil
+	}
+
+	stored := viper.New()
+	stored.SetConfigFile(loaded)
+	if err := stored.ReadInConfig(); err != nil {
+		return false, fmt.Errorf("failed to read legacy config: %w", err)
+	}
+	if stored.GetString("apiKey") == "" {
+		return false, nil
+	}
+
+	configFile, err := configpath.Save(stored)
+	if err != nil {
+		return false, err
+	}
+	fmt.Fprintf(os.Stderr, "migrated legacy config to %s\n", configFile)
+	return true, nil
 }
 
 func checkAPIConnectivity() checkResult {

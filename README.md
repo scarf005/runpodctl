@@ -472,11 +472,17 @@ its errors are json with a `code` and exit 1.
 
 | variable | default | what it sets |
 | --- | --- | --- |
-| `RUNPOD_API_KEY` | — | api key. also settable via `runpodctl doctor` or `~/.runpod/config.toml` |
+| `RUNPOD_API_KEY` | — | api key. also settable via `runpodctl doctor` or the native runpodctl config file |
 | `RUNPOD_API_URL` | `https://rest.runpod.io/v1` | rest control plane (config key `restApiUrl`) |
 | `RUNPOD_GRAPHQL_URL` | `https://api.runpod.io/graphql` | graphql control plane (config key `apiUrl`) |
 | `RUNPOD_INVOKE_URL` | `https://api.runpod.ai/v2` | base for the serverless invoke urls reported by `serverless create/get/list/update`, and the host `serverless run/status/health` call (config key `invokeUrl`) |
 | `RUNPOD_REST_V2_URL` | `https://api.runpod.io/v2` | rest v2, which serves `pod logs`, `serverless logs` and the worker listing behind them (config key `restV2ApiUrl`) |
+
+the config file is stored at `$XDG_CONFIG_HOME/runpod/config.toml` on linux,
+or `~/.config/runpod/config.toml` when `XDG_CONFIG_HOME` is unset. macos and
+windows use their native user config directories. existing `~/.runpod/config.toml`
+and `~/.runpod.yaml` files remain supported as read-only fallbacks; `runpodctl doctor`
+saves the current credentials to the native path.
 
 invoke is a separate service from the control plane: pointing `RUNPOD_API_URL`
 or `RUNPOD_GRAPHQL_URL` at a non-prod host does **not** move the invoke urls.

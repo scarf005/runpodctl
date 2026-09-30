@@ -11,6 +11,10 @@ getting started:
   2. run: runpodctl doctor (will prompt for key and save it)
   or: export RUNPOD_API_KEY=your-key
 
+config is stored in the native user config directory; on linux this is
+$XDG_CONFIG_HOME/runpod/config.toml or ~/.config/runpod/config.toml. legacy
+~/.runpod/config.toml and ~/.runpod.yaml files remain supported as fallbacks.
+
 resources:
   pod            manage gpu pods
   serverless     manage serverless endpoints (alias: sls)

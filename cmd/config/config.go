@@ -5,6 +5,7 @@ import (
 
 	"github.com/runpod/runpodctl/api"
 	"github.com/runpod/runpodctl/cmd/ssh"
+	"github.com/runpod/runpodctl/internal/configpath"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -49,10 +50,11 @@ var ConfigCmd = &cobra.Command{
 
 // saveConfig saves the CLI configuration to a file
 func saveConfig() error {
-	if err := viper.WriteConfig(); err != nil {
+	configFile, err := configpath.Save(viper.GetViper())
+	if err != nil {
 		return err
 	}
-	fmt.Println("Configuration saved to file:", viper.ConfigFileUsed())
+	fmt.Println("Configuration saved to file:", configFile)
 	return nil
 }
 

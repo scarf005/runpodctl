@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/runpod/runpodctl/api"
+	"github.com/runpod/runpodctl/internal/configpath"
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
@@ -277,7 +278,9 @@ var StartProjectCmd = &cobra.Command{
 			}
 			networkVolumeId = netVolId
 			viper.Set(fmt.Sprintf("project_volumes.%s", projectId), networkVolumeId)
-			viper.WriteConfig()
+			if _, err := configpath.Save(viper.GetViper()); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to save config: %v\n", err)
+			}
 		}
 		startProject(networkVolumeId)
 	},

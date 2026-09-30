@@ -3,20 +3,20 @@
 package e2e
 
 import (
-	"os"
 	"testing"
 
 	"github.com/runpod/runpodctl/internal/api"
+	"github.com/runpod/runpodctl/internal/configpath"
 	"github.com/spf13/viper"
 )
 
 func init() {
-	// load config from ~/.runpod/config.toml
-	home, _ := os.UserHomeDir()
-	viper.AddConfigPath(home + "/.runpod")
-	viper.SetConfigType("toml")
-	viper.SetConfigName("config")
-	viper.ReadInConfig()
+	// load config using the same native-first, legacy-fallback selection as the
+	// cli, but never create a config just by running e2e tests. A present but
+	// malformed file must fail loudly rather than silently dropping credentials.
+	if _, err := configpath.LoadExisting(viper.GetViper()); err != nil {
+		panic(err)
+	}
 }
 
 func TestE2E_APIClient(t *testing.T) {

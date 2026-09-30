@@ -17,7 +17,7 @@ import (
 var sshCmd = &cobra.Command{
 	Use:   "ssh",
 	Short: "manage ssh keys and connections",
-	Long:  "manage ssh keys and show ssh info for pods. uses the api key from RUNPOD_API_KEY or ~/.runpod/config.toml (runpodctl doctor).",
+	Long:  "manage ssh keys and show ssh info for pods. uses the api key from RUNPOD_API_KEY or the native runpodctl config file (runpodctl doctor).",
 }
 
 var sshListKeysCmd = &cobra.Command{

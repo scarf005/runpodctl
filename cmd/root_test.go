@@ -164,13 +164,15 @@ func TestOutputValidationSurvivesShadowingHook(t *testing.T) {
 	// This is the only test in the package that runs a *runnable* command, which
 	// means it is the only one that reaches cobra.OnInitialize(initConfig) —
 	// cobra's --help path returns before the initializers. initConfig writes
-	// ~/.runpod/config.toml when it cannot read one, so without redirecting HOME
-	// `go test` would create (or, on an unreadable config, overwrite and thereby
+	// the user config file when it cannot read one, so without redirecting HOME
+	// and XDG_CONFIG_HOME `go test` would create (or, on an unreadable config, overwrite and thereby
 	// destroy the api key in) the real one. USERPROFILE covers windows, where
-	// os.UserHomeDir reads that instead.
+	// os.UserHomeDir reads that instead; APPDATA covers its native config directory.
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("APPDATA", t.TempDir())
 
 	root := GetRootCmd()
 	t.Cleanup(func() {
@@ -250,11 +252,14 @@ func TestOutputValidationSurvivesShadowingHook(t *testing.T) {
 // otherwise generate an ssh keypair and upload it, and `exec` would poll for five
 // minutes, so a regression here shows up as a slow failure rather than a wrong
 // pass. HOME is redirected because initConfig writes a config file regardless of
-// the outcome — see TestOutputValidationSurvivesShadowingHook.
+// the outcome — see TestOutputValidationSurvivesShadowingHook. XDG_CONFIG_HOME
+// and APPDATA are also redirected so the test never reaches a real config file.
 func TestExecAndConfigRejectInvalidOutput(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("APPDATA", t.TempDir())
 
 	root := GetRootCmd()
 	t.Cleanup(func() {

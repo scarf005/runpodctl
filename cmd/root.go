@@ -23,6 +23,7 @@ import (
 	"github.com/runpod/runpodctl/cmd/user"
 	"github.com/runpod/runpodctl/cmd/volume"
 	"github.com/runpod/runpodctl/internal/api"
+	"github.com/runpod/runpodctl/internal/configpath"
 	"github.com/runpod/runpodctl/internal/output"
 
 	"github.com/spf13/cobra"
@@ -31,6 +32,7 @@ import (
 
 var version string
 var outputFormat string
+var configInitErr error
 
 // rootCmd is the base command
 var rootCmd = &cobra.Command{
@@ -42,6 +44,10 @@ getting started:
   1. get your api key at https://www.runpod.io/console/user/settings
   2. run: runpodctl doctor (will prompt for key and save it)
   or: export RUNPOD_API_KEY=your-key
+
+config is stored in the native user config directory; on linux this is
+$XDG_CONFIG_HOME/runpod/config.toml or ~/.config/runpod/config.toml. legacy
+~/.runpod/config.toml and ~/.runpod.yaml files remain supported as fallbacks.
 
 resources:
   pod            manage gpu pods
@@ -105,6 +111,9 @@ func init() {
 		// tells you which values are valid.
 		if c.Name() == "help" {
 			return nil
+		}
+		if configInitErr != nil {
+			return configInitErr
 		}
 		if err := output.ValidateFormat(outputFormat); err != nil {
 			return &usageError{cmd: c, err: err}
@@ -326,31 +335,20 @@ func Execute(ver string) {
 	os.Exit(1)
 }
 
-// initConfig reads config file and ENV variables
+// initConfig reads config file and environment variables. A configuration
+// error is held until the command hook so cobra can return it normally instead
+// of falling back to another file or overwriting the file that failed to read.
 func initConfig() {
-	home, err := os.UserHomeDir()
-	cobra.CheckErr(err)
-	configPath := home + "/.runpod"
-	viper.AddConfigPath(configPath)
-	viper.SetConfigType("toml")
-	viper.SetConfigName("config.toml")
-
-	viper.AutomaticEnv()
-
-	if err := viper.ReadInConfig(); err == nil {
-		// config loaded
-	} else {
-		// legacy: try to migrate old config
-		viper.SetConfigType("yaml")
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".runpod.yaml")
-		if yamlReadErr := viper.ReadInConfig(); yamlReadErr == nil {
-			fmt.Fprintln(os.Stderr, "migrating config from ~/.runpod.yaml to ~/.runpod/config.toml")
+	configInitErr = nil
+	result, err := configpath.Load(viper.GetViper())
+	if err != nil {
+		configInitErr = err
+		return
+	}
+	if result.Legacy {
+		current, currentErr := configpath.Current()
+		if currentErr == nil {
+			fmt.Fprintf(os.Stderr, "using legacy config %s; runpodctl doctor will migrate it to %s\n", result.Path, current)
 		}
-		viper.SetConfigType("toml")
-		// make .runpod folder if not exists
-		err := os.MkdirAll(configPath, os.ModePerm)
-		cobra.CheckErr(err)
-		viper.WriteConfigAs(configPath + "/config.toml") //nolint:errcheck
 	}
 }
